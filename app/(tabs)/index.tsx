@@ -1,111 +1,117 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet, Text } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-import { View } from 'react-native';
+import { useTasks } from '@/hooks/use-tasks';
+import { Task } from '@/types/Task';
+import { TaskStatus } from '@/types/TaskStatus';
+import React, { useState } from 'react';
+import {
+  Alert,
+  Button,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }
-    >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type='title'>Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type='subtitle'>Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit{' '}
-          <ThemedText type='defaultSemiBold'>app/(tabs)/index.tsx</ThemedText>{' '}
-          to see changes. Press{' '}
-          <ThemedText type='defaultSemiBold'>
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <View className='flex-1 items-center justify-center bg-black'>
-          <Text className='text-white'>OK</Text>
-        </View>
-        <Link href='/modal'>
-          <Link.Trigger>
-            <ThemedText type='subtitle'>Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction
-              title='Action'
-              icon='cube'
-              onPress={() => alert('Action pressed')}
-            />
-            <Link.MenuAction
-              title='Share'
-              icon='square.and.arrow.up'
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title='More' icon='ellipsis'>
-              <Link.MenuAction
-                title='Delete'
-                icon='trash'
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { tasksByDate, addTask, updateTaskStatus } = useTasks();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type='subtitle'>Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type='defaultSemiBold'>
-            npm run reset-project
-          </ThemedText>{' '}
-          to get a fresh <ThemedText type='defaultSemiBold'>app</ThemedText>{' '}
-          directory. This will move the current{' '}
-          <ThemedText type='defaultSemiBold'>app</ThemedText> to{' '}
-          <ThemedText type='defaultSemiBold'>app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const handleAddTask = () => {
+    if (!title) return;
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title,
+      description,
+      status: 'todo',
+    };
+    addTask(date, newTask);
+    setTitle('');
+    setDescription('');
+  };
+
+  const toggleStatus = (date: string, task: Task) => {
+    const newStatus: TaskStatus = task.status === 'todo' ? 'done' : 'todo';
+    updateTaskStatus(date, task.id, newStatus);
+  };
+
+  const deleteTask = (date: string, taskId: string) => {
+    Alert.alert('Supprimer tâche ?', '', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Oui',
+        style: 'destructive',
+        onPress: () => {
+          updateTaskStatus(date, taskId, 'done');
+        },
+      },
+    ]);
+  };
+
+  const dates = Object.keys(tasksByDate).sort();
+
+  return (
+    <ScrollView className='flex-1 p-4 bg-white'>
+      <Text className='text-2xl font-bold mb-4'>Ajouter une tâche</Text>
+      <TextInput
+        placeholder='Titre'
+        value={title}
+        onChangeText={setTitle}
+        className='border border-gray-300 rounded-md p-2 mb-2'
+      />
+      <TextInput
+        placeholder='Description'
+        value={description}
+        onChangeText={setDescription}
+        className='border border-gray-300 rounded-md p-2 mb-2'
+      />
+      <TextInput
+        placeholder='Date (YYYY-MM-DD)'
+        value={date}
+        onChangeText={setDate}
+        className='border border-gray-300 rounded-md p-2 mb-2'
+      />
+      <Button title='Ajouter' onPress={handleAddTask} />
+
+      {dates.map((date) => (
+        <View key={date} className='mt-6'>
+          <Text className='text-xl font-semibold mb-2'>{date}</Text>
+          {tasksByDate[date].map((task) => (
+            <View
+              key={task.id}
+              className='flex-row items-center bg-gray-50 p-3 mb-2 rounded-md'
+            >
+              <TouchableOpacity
+                onPress={() => toggleStatus(date, task)}
+                className={`w-5 h-5 rounded-full border-2 border-gray-800 mr-3 ${
+                  task.status === 'done' ? 'bg-green-500' : ''
+                }`}
+              />
+              <View className='flex-1'>
+                <Text
+                  className={`text-base ${
+                    task.status === 'done' ? 'line-through text-gray-400' : ''
+                  }`}
+                >
+                  {task.title}
+                </Text>
+                {task.description ? (
+                  <Text className='text-sm text-gray-500'>
+                    {task.description}
+                  </Text>
+                ) : null}
+              </View>
+              <Button
+                title='Supprimer'
+                color='red'
+                onPress={() => deleteTask(date, task.id)}
+              />
+            </View>
+          ))}
+        </View>
+      ))}
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
